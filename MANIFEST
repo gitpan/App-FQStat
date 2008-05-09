@@ -1,0 +1,7 @@
+Changes
+Makefile.PL
+MANIFEST
+README
+t/App-FQStat.t
+lib/App/FQStat.pm
+META.yml                                 Module meta-data (added by MakeMaker)
