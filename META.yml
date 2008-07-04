@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:                App-FQStat
-version:             5.5
+version:             5.6
 abstract:            Interactive console front-end for Sun's grid engine
 license:             ~
 author:              
