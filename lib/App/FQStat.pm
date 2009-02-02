@@ -5,17 +5,19 @@ package App::FQStat;
 # This program is free software; you can redistribute it and/or
 # modify it under the same terms as Perl itself.
 
-our $VERSION = '5.7';
+our $VERSION = '6.2';
 
 use strict;
 use warnings;
 use App::FQStat::Actions;
 use App::FQStat::System;
 use App::FQStat::Config;
+use App::FQStat::Colors;
 use App::FQStat::Scanner;
 use App::FQStat::Input;
 use App::FQStat::Drawing;
 use App::FQStat::Menu;
+use App::FQStat::PAR;
 use App::FQStat::Debug ();
 
 1;

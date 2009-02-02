@@ -11,7 +11,7 @@ use threads::shared;
 
 use IO::Handle;
 use Time::HiRes qw/sleep time/;
-use Term::ANSIScreen qw/:color :constants :screen :cursor :keyboard/;
+use Term::ANSIScreen qw/RESET cls/;
 use Term::ReadKey;
 use Getopt::Long;
 
@@ -93,13 +93,13 @@ use constant PROGRESS_INDICATORS => ['-', '\\', '|', '/']; # progress indicator 
 our $ProgressIndicator = 0;             # progress indicator current state number
 
 # displaying globals
+our $Initialized = 0;
 our @Termsize : shared;                 # holds terminal size
 our $DisplayOffset : shared = 0;        # Offset of the first displayed job
 our $SortField : shared;                # may hold name of sort field
 
 our $Interval : shared;                 # Effective data refreshing interval. Do not change. Is set to $UserInterval below
 our $HighlightUser;
-our $HighlightUserColor = color("black on yellow");
 {
   my $curuser = $ENV{USER};
   if (defined $curuser) {
@@ -111,8 +111,6 @@ our $HighlightUserColor = color("black on yellow");
 our $MenuMode        = 0; # in menu or not
 our $MenuNumber      = 0; # which menu (see @App::FQStat::Menu::Menus)
 our $MenuEntryNumber = 0; # in which entry of that menu
-our $MenuColor       = color("bold white on blue");
-our $MenuSelColor    = color("bold white on red");
 
 # Displayed column descriptions
 our %Columns =  (
@@ -217,7 +215,7 @@ sub thread_cleanup {
 sub cleanup_and_exit {
   warnenter if ::DEBUG;
   print RESET;
-  locate($Termsize[1],1);
+  Term::ANSIScreen::locate($Termsize[1],1);
   thread_cleanup();
   ReadMode 1;
   print "Have a nice day!\n" unless @_;
@@ -349,6 +347,7 @@ sub main_loop {
       warnline "Scanner thread joinable in main loop. Joining" if ::DEBUG;
       my $return = $ScannerThread->join();
       ($Records, $NoActiveNodes) = @$return;
+      $Initialized = 1;
       warnline "Scanner thread joined in main loop" if ::DEBUG;
       lock($RecordsChanged);
       $RecordsChanged = 1;
@@ -382,6 +381,7 @@ sub main_loop {
       lock($RecordsChanged);
       $RecordsChanged = 0;
       $RedrawTime = time();
+      restart() if $RedrawTime - STARTTIME() > 4*60*60; # restart every four hours (wallclock)
     }
   } # end while(1)
 }
@@ -398,6 +398,31 @@ sub print_module_versions {
     $version = 'undef' if not defined $version;
     debug("$module ($version): $path\n");
   }
+}
+
+
+sub restart {
+  warnenter if ::DEBUG;
+  my @args;
+  push @args, '-u', $User
+    if defined $User and $User ne '';
+  push @args, '-H', $HighlightUser
+    if defined $HighlightUser and $HighlightUser ne '';
+  push @args, '-i', $UserInterval
+    if defined $UserInterval and $UserInterval ne '';
+  push @args, '--slow' if $SlowRedraw;
+  push @args, '--ssh', $SSHCommand
+    if defined $SSHCommand and $SSHCommand ne '';
+
+  my @cmd;
+  if (exists $INC{"PAR.pm"}) {
+    @cmd = ($ENV{PAR_PROGNAME}, @args);
+  }
+  else {
+    my @inc = map {('-I', $_)} @INC;
+    @cmd = ($^X, @inc, $0, @args);
+  }
+  App::FQStat::System::exec_local(@cmd);
 }
 
 

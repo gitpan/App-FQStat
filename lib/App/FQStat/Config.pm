@@ -11,6 +11,7 @@ use App::FQStat::Debug;
 use YAML::Tiny ();
 use File::HomeDir ();
 use File::Spec;
+use Term::ANSIScreen qw();
 
 
 use base 'Exporter';
@@ -104,17 +105,33 @@ sub reset_configuration {
 sub _default_config {
   warnenter if ::DEBUG;
   my %default = (
+    persistent => 1,
     qstatcmd => 'qstat',
     qdelcmd => 'qdel',
     qaltercmd => 'qalter',
     qmodcmd => 'qmod',
     sshcommand => '',
     version => $App::FQStat::VERSION,
+    colors => $App::FQStat::Colors::DefaultColors,
+    color_schemes => $App::FQStat::Colors::DefaultColorSchemes,
   );
-  my %upgrades = (
+
+  my %upgrades;
+  %upgrades = (
     old => sub {
       my $cfg = shift;
       %$cfg = %default;
+      save_configuration();
+    },
+    '6.0' => sub {
+      my $cfg = shift;
+      $cfg->{colors} = $App::FQStat::Colors::DefaultColors;
+      $upgrades{6.1}->($cfg);
+      save_configuration();
+    },
+    '6.1' => sub {
+      my $cfg = shift;
+      $cfg->{color_schemes} = $App::FQStat::Colors::DefaultColorSchemes;
       save_configuration();
     },
   );
@@ -122,12 +139,16 @@ sub _default_config {
   # upgrade old configs 
   my $cfgversion = $Config->{version};
   $upgrades{old}->($Config), $cfgversion = $Config->{version} if not $cfgversion or $cfgversion < 5;
+
   $upgrades{$cfgversion}->($Config) if exists $upgrades{$cfgversion};
+
   $Config->{version} = $App::FQStat::VERSION, save_configuration() if $Config->{version} ne $App::FQStat::VERSION;
 
+  my $add = 0;
   foreach my $key (keys %default) {
-    $Config->{$key} = $default{$key} if not defined $Config->{$key};
+    $add++, $Config->{$key} = $default{$key} if not defined $Config->{$key};
   }
+  save_configuration() if $Config->{persistent} and $add;
 }
 
 sub edit_configuration {
@@ -158,11 +179,11 @@ sub edit_configuration {
     push @$YAMLObject, {} if @$YAMLObject == 0;
     $Config = $YAMLObject->[0];
     _default_config();
+    save_configuration() if $Config->{persistent};
     return 1;
   }
   return();
 }
-
 
 1;
 
